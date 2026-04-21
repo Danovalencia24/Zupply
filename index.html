@@ -65,7 +65,7 @@
             <div class="text-left space-y-4 relative">
                 <div class="relative">
                     <label class="block text-[10px] font-black text-slate-400 mb-1 uppercase">Producto o Costo USD</label>
-                    <input type="text" id="costInput" placeholder="Ej: Arroz o 1.50" class="w-full bg-slate-50 dark:bg-slate-800 rounded-2xl py-4 px-5 text-2xl font-black outline-none border-2 border-transparent focus:border-blue-500" oninput="handleSearch(this.value)">
+                    <input type="text" id="costInput" placeholder="Ej: Harina o 1.50" class="w-full bg-slate-50 dark:bg-slate-800 rounded-2xl py-4 px-5 text-2xl font-black outline-none border-2 border-transparent focus:border-blue-500" oninput="handleSearch(this.value)">
                     <div id="suggestions" class="absolute left-0 right-0 bg-white dark:bg-slate-800 mt-2 rounded-2xl shadow-2xl border dark:border-slate-700 hidden z-50 max-h-60 overflow-y-auto"></div>
                 </div>
                 <div class="grid grid-cols-2 gap-4">
@@ -81,13 +81,13 @@
             </div>
         </section>
 
-        <section class="bg-zupply text-white p-8 rounded-[2.5rem] shadow-2xl text-center relative overflow-hidden">
+        <section class="bg-zupply text-white p-8 rounded-[2.5rem] shadow-2xl text-center">
             <p class="text-[10px] text-blue-400 font-black uppercase tracking-[0.3em] mb-2">Precio Sugerido Venta</p>
             <div class="flex items-center justify-center gap-2 mb-6">
                 <span id="outBs" class="text-6xl font-black tracking-tighter">0,00</span>
                 <span class="text-xl font-bold text-slate-500">Bs</span>
             </div>
-            <div class="flex gap-3 relative z-10">
+            <div class="flex gap-3">
                 <div class="bg-white/5 p-4 rounded-3xl border border-white/10 flex-1 text-left">
                     <p class="text-[8px] text-slate-400 font-bold uppercase">Ref. USD (BCV)</p>
                     <p class="text-xl font-black">$ <span id="outUsd">0.00</span></p>
@@ -96,7 +96,7 @@
                     <i data-lucide="eye" class="w-6 h-6"></i>
                 </button>
             </div>
-            <button onclick="registerSale()" class="w-full mt-4 bg-white/10 hover:bg-white/20 py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em]">Registrar Validación</button>
+            <button onclick="registerSale()" class="w-full mt-4 bg-white/10 hover:bg-white/20 py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition-all">Registrar Validación</button>
         </section>
     </main>
 
@@ -112,7 +112,7 @@
                 <input type="text" id="invName" placeholder="Nombre del Producto" class="w-full bg-slate-50 dark:bg-slate-800 rounded-xl p-3 text-sm outline-none font-bold">
                 <div class="grid grid-cols-2 gap-3">
                     <input type="number" id="invCost" placeholder="Costo USD" class="bg-slate-50 dark:bg-slate-800 rounded-xl p-3 text-sm outline-none font-bold">
-                    <button onclick="addToInventory()" class="bg-blue-600 text-white rounded-xl font-black text-xs uppercase shadow-lg shadow-blue-600/20">Guardar</button>
+                    <button onclick="addToFirebase()" class="bg-blue-600 text-white rounded-xl font-black text-xs uppercase">Guardar</button>
                 </div>
             </div>
         </section>
@@ -121,23 +121,23 @@
 
     <main id="reportView" class="hidden max-w-md mx-auto p-4 space-y-6">
         <section class="grid grid-cols-2 gap-4">
-            <div class="bg-white dark:bg-slate-900 p-6 rounded-3xl border dark:border-slate-800 shadow-sm">
+            <div class="bg-white dark:bg-slate-900 p-6 rounded-3xl border dark:border-slate-800">
                 <p class="text-[8px] font-black text-slate-400 uppercase mb-1">Validaciones Hoy</p>
                 <p id="statSales" class="text-3xl font-black">0</p>
             </div>
             <div class="bg-zupply text-white p-6 rounded-3xl border border-white/10 shadow-xl">
-                <p class="text-[8px] font-black text-blue-400 uppercase mb-1 italic">Capital Protegido</p>
+                <p class="text-[8px] font-black text-blue-400 uppercase mb-1">Capital Protegido</p>
                 <p class="text-3xl font-black text-white">$ <span id="statAhorro">0.00</span></p>
             </div>
         </section>
 
-        <section id="securityBlock" class="blur-sensitive bg-white dark:bg-slate-900 p-6 rounded-3xl border dark:border-slate-800 space-y-6 text-left shadow-sm">
+        <section id="securityBlock" class="blur-sensitive bg-white dark:bg-slate-900 p-6 rounded-3xl border dark:border-slate-800 space-y-6 text-left">
             <h3 class="text-[10px] font-black uppercase text-slate-400 tracking-widest">Sincronización de Cuenta</h3>
             
             <div class="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-2xl border border-blue-100 dark:border-blue-800">
                 <p class="text-[9px] text-slate-500 font-black uppercase mb-1">Tu ID de Recuperación:</p>
                 <div class="flex items-center justify-between">
-                    <code id="displayUserID" class="text-lg font-black text-blue-600 tracking-wider font-mono">GENERANDO...</code>
+                    <code id="displayUserID" class="text-lg font-black text-blue-600 tracking-wider font-mono">Cargando...</code>
                     <button onclick="copyID()" class="text-blue-500 p-2 active:scale-90 transition-transform">
                         <i data-lucide="copy" class="w-4 h-4"></i>
                     </button>
@@ -145,17 +145,19 @@
             </div>
 
             <div class="space-y-3">
-                <label class="block text-[8px] font-black text-slate-400 uppercase">¿Cambio de dispositivo? Vincula tu ID:</label>
+                <label class="block text-[8px] font-black text-slate-400 uppercase">¿Te mudaste de dispositivo? Vincula tu ID:</label>
                 <div class="flex gap-2">
                     <input type="text" id="recoverID" placeholder="ZPLY-XXXXXX" class="flex-1 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-3 text-xs outline-none border dark:border-slate-700 font-bold uppercase">
                     <button onclick="recoverAccount()" class="bg-slate-800 text-white px-5 rounded-xl font-black text-[9px] uppercase active:scale-95">Vincular</button>
                 </div>
-                <p class="text-[7px] text-slate-400 italic">* Esto cargará tu inventario y ventas vinculadas a ese ID.</p>
+                <p class="text-[7px] text-slate-400 italic">* Al vincular, el inventario y las ventas se asociarán a ese ID.</p>
             </div>
         </section>
+        
+        <button onclick="syncRates()" class="w-full bg-slate-800 text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest">Forzar Sincronización Nube</button>
     </main>
 
-    <nav class="fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-slate-950/90 backdrop-blur-xl border-t px-4 py-4 z-40">
+    <nav class="fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-slate-950/90 backdrop-blur-md border-t px-4 py-4 z-40">
         <div class="max-w-md mx-auto flex justify-around">
             <button onclick="switchView('calc')" id="nav-calc" class="nav-active flex flex-col items-center gap-1">
                 <i data-lucide="calculator"></i>
@@ -202,7 +204,7 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
     <script>
-        // CONFIGURACIÓN DE IDENTIDAD Y SILOS
+        // --- NUEVO: FUNCIONES DE ID AUTOMÁTICO Y SILOS ---
         let userID = localStorage.getItem('zupply_user_id');
         if (!userID) {
             userID = 'ZPLY-' + Math.random().toString(36).substr(2, 6).toUpperCase();
@@ -210,7 +212,7 @@
         }
 
         const firebaseConfig = {
-            apiKey: "AIzaSyD-X", // Tu API Key
+            apiKey: "AIzaSyD-X", 
             authDomain: "tu-proyecto.firebaseapp.com",
             projectId: "tu-proyecto",
             storageBucket: "tu-proyecto.appspot.com",
@@ -221,7 +223,7 @@
         if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
-        // Rutas dinámicas basadas en el ID de Usuario
+        // Referencias de Silos de Datos (Vinculadas al userID)
         const userRef = db.collection('usuarios').doc(userID);
         const inventoryRef = userRef.collection('inventario');
         const salesRef = userRef.collection('ventas');
@@ -230,26 +232,41 @@
         const securityPin = "0000";
 
         async function init() {
-            setupUserIdentity();
+            setupUserIdentity(); // <--- NUEVA FUNCIÓN
             lucide.createIcons();
-            await loadData();
+            await loadFromFirebase();
             calculate();
             applyPrivacyUI();
         }
 
+        // --- NUEVA FUNCIÓN: Identidad ---
         function setupUserIdentity() {
-            document.getElementById('topUserID').innerText = "ID: " + userID;
-            document.getElementById('displayUserID').innerText = userID;
+            if(document.getElementById('topUserID')) document.getElementById('topUserID').innerText = "ID: " + userID;
+            if(document.getElementById('displayUserID')) document.getElementById('displayUserID').innerText = userID;
         }
 
-        async function loadData() {
-            try {
-                const invSnap = await inventoryRef.get();
-                inventory = invSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                const salesSnap = await salesRef.get();
-                sales = salesSnap.docs.map(doc => doc.data());
-                updateUI();
-            } catch(e) { console.error("Error cargando silos:", e); }
+        // --- NUEVA FUNCIÓN: Recuperación ---
+        function copyID() {
+            const id = document.getElementById('displayUserID').innerText;
+            navigator.clipboard.writeText(id).then(() => showToast("ID COPIADO"));
+        }
+
+        function recoverAccount() {
+            const newID = document.getElementById('recoverID').value.trim().toUpperCase();
+            if (newID.startsWith('ZPLY-') && newID.length >= 10) {
+                if(confirm("¿Vincular al ID " + newID + "?")) {
+                    localStorage.setItem('zupply_user_id', newID);
+                    location.reload();
+                }
+            } else { showToast("ID INVÁLIDO"); }
+        }
+
+        async function loadFromFirebase() {
+            const invSnap = await inventoryRef.get();
+            inventory = invSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const salesSnap = await salesRef.get();
+            sales = salesSnap.docs.map(doc => doc.data());
+            updateUI();
         }
 
         function calculate() {
@@ -271,7 +288,7 @@
             const matches = inventory.filter(p => p.name.toLowerCase().includes(val.toLowerCase())).slice(0, 5);
             if (matches.length > 0) {
                 sugg.innerHTML = matches.map(p => `
-                    <div onclick="selectProduct('${p.name}', ${p.cost}, ${p.margin || 30}, ${p.buffer || 5})" class="p-4 border-b dark:border-slate-700 flex justify-between items-center active:bg-blue-50 cursor-pointer">
+                    <div onclick="selectProduct('${p.name}', ${p.cost}, ${p.margin || 30}, ${p.buffer || 5})" class="p-4 border-b dark:border-slate-700 flex justify-between items-center active:bg-blue-50">
                         <span class="font-bold uppercase text-xs">${p.name}</span>
                         <span class="text-blue-500 font-black">$${p.cost}</span>
                     </div>
@@ -290,14 +307,14 @@
             calculate();
         }
 
-        async function addToInventory() {
+        async function addToFirebase() {
             const name = document.getElementById('invName').value.trim();
             const cost = parseFloat(document.getElementById('invCost').value);
             if (!name || isNaN(cost)) return;
             await inventoryRef.add({ name, cost, margin: 30, buffer: 5 });
             document.getElementById('invName').value = ""; document.getElementById('invCost').value = "";
-            await loadData();
-            showToast("PRODUCTO GUARDADO");
+            await loadFromFirebase();
+            showToast("GUARDADO EN NUBE");
         }
 
         async function registerSale() {
@@ -306,17 +323,17 @@
             const ahorro = (data.priceBs - (data.priceBs * (data.bcv / data.rep))) / data.bcv;
             await salesRef.add({ monto: data.priceBs, ahorro, date: new Date().toLocaleDateString() });
             showToast("VENTA REGISTRADA");
-            await loadData();
+            await loadFromFirebase();
         }
 
         function updateUI() {
             const list = document.getElementById('inventoryList');
-            list.innerHTML = inventory.length ? inventory.map(p => `
+            list.innerHTML = inventory.map(p => `
                 <div class="bg-white dark:bg-slate-900 p-4 rounded-2xl flex justify-between items-center shadow-sm">
                     <div class="text-left"><p class="font-black text-xs uppercase">${p.name}</p><p class="text-[9px] text-blue-500 font-bold">$${p.cost} USD</p></div>
-                    <button onclick="deleteItem('${p.id}')" class="text-slate-300 hover:text-red-500 transition-colors"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    <button onclick="deleteItem('${p.id}')" class="text-slate-300"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                 </div>
-            `).join('') : '<p class="text-center py-10 text-[10px] uppercase font-black text-slate-400">Sin productos</p>';
+            `).join('');
             
             const today = new Date().toLocaleDateString();
             const todaySales = sales.filter(s => s.date === today);
@@ -327,7 +344,7 @@
         }
 
         async function deleteItem(id) {
-            if(confirm("¿Eliminar?")) { await inventoryRef.doc(id).delete(); await loadData(); }
+            if(confirm("¿Eliminar?")) { await inventoryRef.doc(id).delete(); await loadFromFirebase(); }
         }
 
         function handlePrivacyToggle() {
@@ -385,26 +402,13 @@
         }
         function closeClientView() { document.getElementById('clientModal').style.display = 'none'; }
 
-        function copyID() {
-            const id = document.getElementById('displayUserID').innerText;
-            navigator.clipboard.writeText(id).then(() => showToast("ID COPIADO"));
-        }
-
-        function recoverAccount() {
-            const newID = document.getElementById('recoverID').value.trim().toUpperCase();
-            if (newID.startsWith('ZPLY-') && newID.length >= 10) {
-                if(confirm("¿Vincular al ID " + newID + "?")) {
-                    localStorage.setItem('zupply_user_id', newID);
-                    location.reload();
-                }
-            } else { showToast("ID INVÁLIDO"); }
-        }
-
         function showToast(m) {
             const t = document.getElementById('toast');
             t.innerText = m; t.style.opacity = '1';
             setTimeout(() => t.style.opacity = '0', 2500);
         }
+
+        function syncRates() { showToast("SINCRO CON FIREBASE"); loadFromFirebase(); calculate(); }
 
         async function importCSV(event) {
             const file = event.target.files[0];
@@ -416,13 +420,18 @@
                 rows.forEach(row => {
                     const cols = row.split(',');
                     if (cols.length >= 2) {
-                        const ref = inventoryRef.doc();
-                        batch.set(ref, { name: cols[0].trim(), cost: parseFloat(cols[1]), margin: parseFloat(cols[2]) || 30, buffer: parseFloat(cols[3]) || 5 });
+                        const ref = inventoryRef.doc(); // Se guarda en el silo del usuario
+                        batch.set(ref, { 
+                            name: cols[0].trim(), 
+                            cost: parseFloat(cols[1]), 
+                            margin: parseFloat(cols[2]) || 30, 
+                            buffer: parseFloat(cols[3]) || 5 
+                        });
                     }
                 });
                 await batch.commit();
-                await loadData();
-                showToast("CSV CARGADO A TU CUENTA");
+                await loadFromFirebase();
+                showToast("LOTE CSV CARGADO A NUBE");
             };
             reader.readAsText(file);
         }
