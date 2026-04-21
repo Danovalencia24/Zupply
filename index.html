@@ -1,12 +1,11 @@
-<!DOCTYPE html>
+
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Zupply - MVP Resiliencia</title>
+    <title>Zupply - Gestión de Inventario y Resguardo</title>
     <link href="https://fonts.googleapis.com/css2?family=Titan+One&family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script>
         tailwind.config = {
@@ -23,10 +22,18 @@
         input[type=number]::-webkit-inner-spin-button, 
         input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
         .blur-sensitive { filter: blur(12px); pointer-events: none; opacity: 0.3; transition: all 0.4s ease; }
-        #clientModal, #authModal, #excelInfoModal { display: none; position: fixed; inset: 0; background: rgba(15, 27, 45, 0.98); z-index: 100; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(12px); }
+        #authModal, #clientModal { display: none; position: fixed; inset: 0; background: rgba(15, 27, 45, 0.95); z-index: 100; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(12px); }
         .pin-dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid #3b82f6; transition: all 0.2s; }
         .pin-dot.filled { background: #3b82f6; transform: scale(1.2); }
-        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .numpad-btn { background: rgba(241, 245, 249, 1); padding: 1.25rem; border-radius: 1.5rem; font-weight: 900; font-size: 1.25rem; transition: all 0.1s; }
+        .dark .numpad-btn { background: rgba(30, 41, 59, 1); color: white; }
+        .numpad-btn:active { background: #3b82f6; color: white; transform: scale(0.9); }
+        .nav-active { color: #3b82f6 !important; transform: scale(1.1); }
+        .suggestion-item { padding: 14px; cursor: pointer; border-bottom: 1px solid rgba(0,0,0,0.05); }
+        .suggestion-item:hover { background: #eff6ff; }
+        .hidden-employee { display: none !important; }
+        .level-locked { opacity: 0.5; filter: grayscale(1); pointer-events: none; position: relative; }
+        .level-badge { position: absolute; top: -5px; right: -5px; background: #ef4444; color: white; font-size: 8px; padding: 2px 6px; border-radius: 10px; font-weight: 900; }
     </style>
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans pb-32 transition-colors duration-300">
@@ -35,15 +42,15 @@
     <header class="bg-zupply text-white p-5 rounded-b-[2.5rem] shadow-2xl sticky top-0 z-30">
         <div class="max-w-md mx-auto flex items-center justify-between">
             <div>
-                <h1 class="text-3xl font-titan tracking-tight text-white leading-none">ZUPPLY</h1>
-                <p id="viewTitle" class="text-blue-400 text-[9px] font-black uppercase tracking-[0.3em] mt-1">Calculadora</p>
+                <h1 class="text-3xl font-titan tracking-tight text-white leading-none uppercase">ZUPPLY</h1>
+                <p class="text-blue-400 text-[9px] font-black uppercase tracking-widest mt-1">Calculadora de Resguardo</p>
             </div>
             <div class="flex items-center gap-2">
                 <button onclick="toggleDarkMode()" class="bg-white/10 p-2.5 rounded-xl active:scale-90 transition-all">
                     <i data-lucide="sun" id="themeIcon" class="w-5 h-5 text-yellow-400"></i>
                 </button>
-                <button onclick="handlePrivacyToggle()" id="privacyBtn" class="bg-white/10 p-2.5 rounded-xl active:scale-90 transition-all">
-                    <i data-lucide="lock" id="lockIcon" class="w-5 h-5"></i>
+                <button onclick="handlePrivacyToggle()" class="bg-white/10 p-2.5 rounded-xl active:scale-90 transition-all">
+                    <i data-lucide="lock" id="lockIcon" class="w-5 h-5 text-blue-400"></i>
                 </button>
             </div>
         </div>
@@ -51,605 +58,653 @@
 
     <!-- VISTA: CALCULADORA -->
     <main id="calcView" class="max-w-md mx-auto p-4 space-y-5">
-        <!-- Tasas -->
-        <section id="ratesPanel" class="bg-white dark:bg-slate-900 p-5 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800">
-            <div class="grid grid-cols-2 gap-4 mb-4">
-                <div>
-                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Tasa BCV</label>
-                    <input type="number" id="rateBcv" value="45.50" step="0.01" class="w-full bg-slate-50 dark:bg-slate-800 rounded-2xl py-3 px-4 font-bold" oninput="calculate()">
-                </div>
-                <div>
-                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Tasa Reposición</label>
-                    <input type="number" id="rateRep" value="55.20" step="0.01" class="w-full bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-100 rounded-2xl py-3 px-4 font-bold text-blue-600" oninput="calculate()">
-                </div>
+        <!-- Bloque Tasas -->
+        <section id="ratesBlock" class="bg-white dark:bg-slate-900 p-5 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Control Cambiario</h3>
+                <button onclick="syncRates()" class="bg-slate-100 dark:bg-slate-800 p-2 rounded-lg text-slate-500 hover:text-blue-600 shadow-sm active:scale-90 transition-all group">
+                    <i data-lucide="refresh-cw" class="w-3.5 h-3.5 group-active:rotate-180 transition-transform"></i>
+                </button>
             </div>
-            <div class="rounded-2xl p-3 flex items-center justify-between bg-green-50 dark:bg-green-900/20 text-green-700">
-                <p class="text-[11px] font-black uppercase">Brecha: <span id="gapPercent">0.0</span>%</p>
-                <button onclick="showToast('Margenes actualizados')" class="text-[10px] font-black bg-green-600 text-white px-3 py-1 rounded-full uppercase tracking-tighter">Sincronizar</button>
+            <div class="grid grid-cols-2 gap-4 items-end">
+                <div class="space-y-1 text-left">
+                    <label class="block text-[9px] font-black text-slate-400 uppercase">Tasa Oficial (BCV)</label>
+                    <input type="number" id="rateBcv" value="47.00" step="0.01" class="w-full bg-slate-50 dark:bg-slate-800 rounded-2xl py-3 px-4 font-bold outline-none border border-transparent focus:border-slate-200" oninput="calculate()">
+                </div>
+                <div class="space-y-1 text-left">
+                    <label class="block text-[9px] font-black text-blue-500 uppercase italic">Tasa Reposición</label>
+                    <input type="number" id="rateRep" value="61.00" step="0.01" class="w-full bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-100 dark:border-blue-800 rounded-2xl py-3 px-4 font-bold text-blue-600 outline-none" oninput="calculate()">
+                </div>
             </div>
         </section>
 
-        <!-- Entrada -->
+        <!-- Bloque Producto -->
         <section class="bg-white dark:bg-slate-900 p-5 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800 space-y-4">
-            <div class="relative">
-                <input type="text" id="productName" placeholder="Nombre del producto..." class="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl py-4 px-5 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none" autocomplete="off" oninput="showSuggestions()">
-                <div id="suggestions" class="absolute w-full mt-2 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-700 hidden z-50 overflow-hidden max-h-48 overflow-y-auto"></div>
+            <div class="relative text-left">
+                <label class="block text-[10px] font-black text-slate-400 mb-1 uppercase">Buscar Producto</label>
+                <div class="relative">
+                    <input type="text" id="productSearch" placeholder="Escribe el nombre..." oninput="searchProducts(this.value)" autocomplete="off" class="w-full bg-slate-100 dark:bg-slate-800 rounded-2xl py-4 px-4 font-bold outline-none border-2 border-transparent focus:border-blue-500/20 transition-all">
+                    <div id="suggestions" class="absolute left-0 right-0 mt-1 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-2xl shadow-xl z-50 max-h-48 overflow-y-auto hidden"></div>
+                </div>
             </div>
             
-            <div id="sensitiveFields" class="space-y-4">
-                <div>
-                    <label class="block text-[10px] font-black text-slate-400 mb-1 uppercase">Costo USD</label>
-                    <input type="number" id="cost" value="0.00" step="0.01" class="w-full bg-slate-50 dark:bg-slate-800 rounded-2xl py-4 px-5 text-2xl font-black text-slate-700 dark:text-white" oninput="calculate()">
+            <div id="sensitiveFields" class="space-y-4 text-left">
+                <div class="cost-field">
+                    <label class="block text-[10px] font-black text-slate-400 mb-1 uppercase">Costo USD (Neto)</label>
+                    <input type="number" id="cost" value="10.00" step="0.01" class="w-full bg-slate-50 dark:bg-slate-800 rounded-2xl py-4 px-5 text-3xl font-black focus:ring-2 ring-blue-500/20 outline-none" oninput="calculate()">
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="text-[8px] font-bold text-slate-400 uppercase">Margen %</label>
-                        <input type="number" id="margin" value="30" class="w-full bg-slate-50 dark:bg-slate-800 rounded-xl py-3 px-4 font-bold" oninput="calculate()">
+                        <input type="number" id="margin" value="30" class="w-full bg-slate-50 dark:bg-slate-800 rounded-xl py-3 px-4 font-bold outline-none" oninput="calculate()">
                     </div>
                     <div>
                         <label class="text-[8px] font-bold text-slate-400 uppercase">Buffer %</label>
-                        <input type="number" id="buffer" value="5" class="w-full bg-slate-50 dark:bg-slate-800 rounded-xl py-3 px-4 font-bold" oninput="calculate()">
+                        <input type="number" id="buffer" value="5" class="w-full bg-slate-50 dark:bg-slate-800 rounded-xl py-3 px-4 font-bold outline-none" oninput="calculate()">
                     </div>
                 </div>
             </div>
         </section>
 
-        <!-- Resultado Principal -->
-        <section class="bg-zupply text-white p-7 rounded-[2.5rem] shadow-2xl relative">
-            <div class="text-center mb-6">
-                <p class="text-[10px] text-blue-400 font-black uppercase tracking-[0.3em] mb-2">Total Bs</p>
+        <!-- Bloque Sugerido -->
+        <section class="bg-zupply text-white p-7 rounded-[2.5rem] shadow-2xl relative overflow-hidden">
+            <div class="text-center mb-4">
+                <p class="text-[10px] text-blue-400 font-black uppercase tracking-[0.3em] mb-2">Precio Sugerido Venta</p>
                 <div class="flex items-center justify-center gap-2">
                     <span id="outBs" class="text-6xl font-black tracking-tighter">0,00</span>
+                    <span class="text-xl font-bold text-slate-500">Bs</span>
                 </div>
             </div>
-            <div class="flex justify-between items-center bg-white/5 p-5 rounded-3xl border border-white/10">
-                <div>
-                    <p class="text-[9px] text-slate-400 font-bold uppercase mb-1">Ref. USD</p>
-                    <p class="text-2xl font-black">$ <span id="outUsd">0,00</span></p>
+            
+            <div class="mb-6 flex justify-center">
+                <div class="bg-green-500/10 border border-green-500/20 px-4 py-2 rounded-2xl flex items-center gap-2">
+                    <i data-lucide="shield-check" class="w-3.5 h-3.5 text-green-500"></i>
+                    <p class="text-[10px] font-black text-green-500 uppercase">Ahorro Real: Bs <span id="outSavedBs">0,00</span></p>
                 </div>
-                <div class="text-right">
-                    <p class="text-[9px] text-green-400 font-bold uppercase mb-1">Ahorro Real</p>
-                    <p class="text-lg font-black text-green-400">Bs <span id="savedCapital">0,00</span></p>
+            </div>
+
+            <div class="bg-white/5 p-4 rounded-3xl border border-white/10 flex items-center justify-between">
+                <div class="text-left">
+                    <p class="text-[8px] text-slate-400 font-bold uppercase">$ Ref. (BCV)</p>
+                    <p class="text-xl font-black">$ <span id="outUsd">0.00</span></p>
                 </div>
-                <button onclick="openClientView()" class="bg-blue-600 p-4 rounded-2xl shadow-lg active:scale-90">
-                    <i data-lucide="eye" class="w-6 h-6"></i>
+                <button onclick="openClientView()" class="bg-blue-600 p-3 rounded-xl active:scale-95 transition-all">
+                    <i data-lucide="eye" class="w-5 h-5 text-white"></i>
                 </button>
             </div>
         </section>
 
-        <button onclick="saveCalculation()" class="w-full bg-blue-600 text-white font-black py-5 rounded-[2rem] shadow-xl active:scale-95 transition-all uppercase tracking-widest text-sm">Registrar Venta</button>
+        <button onclick="confirmPrice()" class="w-full bg-blue-600 text-white font-black py-5 rounded-[2rem] shadow-xl active:scale-95 transition-all uppercase tracking-widest text-sm">
+            Confirmar y Registrar
+        </button>
     </main>
 
-    <!-- VISTA: RESUMEN / PANEL -->
+    <!-- VISTA: GAMIFICACIÓN -->
+    <main id="gameView" class="hidden max-w-md mx-auto p-4 space-y-5">
+        <section class="bg-white dark:bg-slate-900 p-8 rounded-[3rem] shadow-sm border border-slate-200 dark:border-slate-800 text-center">
+            <div class="w-24 h-24 bg-blue-600 rounded-full flex items-center justify-center text-white font-black text-4xl mx-auto mb-6 shadow-xl shadow-blue-500/20" id="lvlNumber">1</div>
+            <h2 class="text-2xl font-titan uppercase dark:text-white mb-2" id="lvlName">Bronce</h2>
+            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-8" id="lvlProgressText">0 / 50 consultas</p>
+            
+            <div class="w-full bg-slate-100 dark:bg-slate-800 h-4 rounded-full overflow-hidden mb-10">
+                <div id="lvlBar" class="h-full bg-blue-600 transition-all duration-1000 shadow-[0_0_15px_rgba(37,99,235,0.5)]" style="width: 0%"></div>
+            </div>
+
+            <div class="grid grid-cols-1 gap-3 text-left">
+                <div class="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700 flex items-center gap-4">
+                    <div class="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-lg"><i data-lucide="file-up" class="w-5 h-5 text-blue-600"></i></div>
+                    <div>
+                        <p class="text-[10px] font-black uppercase">Nivel 1: Carga Masiva (50)</p>
+                        <p class="text-[8px] text-slate-400">Habilita importación de inventario vía CSV.</p>
+                    </div>
+                </div>
+                <div class="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700 flex items-center gap-4">
+                    <div class="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-lg"><i data-lucide="download" class="w-5 h-5 text-blue-600"></i></div>
+                    <div>
+                        <p class="text-[10px] font-black uppercase">Nivel 2: Reporte Maestro (150)</p>
+                        <p class="text-[8px] text-slate-400">Descarga el historial completo en Excel.</p>
+                    </div>
+                </div>
+                <div class="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700 flex items-center gap-4">
+                    <div class="bg-yellow-100 dark:bg-yellow-900/30 p-2 rounded-lg"><i data-lucide="medal" class="w-5 h-5 text-yellow-600"></i></div>
+                    <div>
+                        <p class="text-[10px] font-black uppercase">Nivel 3: Bono Resiliencia (450)</p>
+                        <p class="text-[8px] text-slate-400">Medalla de honor y racha máxima desbloqueada.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="rewardBadge" class="hidden mt-8 p-4 bg-yellow-500/10 border-2 border-yellow-500/20 rounded-3xl flex items-center justify-center gap-3 animate-bounce">
+                <i data-lucide="trophy" class="w-6 h-6 text-yellow-500"></i>
+                <span class="text-xs font-black text-yellow-600 uppercase">¡Bono de Resiliencia Desbloqueado!</span>
+            </div>
+        </section>
+    </main>
+
+    <!-- VISTA: PANEL -->
     <main id="reportView" class="hidden max-w-md mx-auto p-4 space-y-6">
-        <!-- Dashboard de Ahorro -->
-        <div id="ownerSummary" class="bg-zupply p-6 rounded-[2rem] text-white space-y-4 shadow-xl">
-            <div class="flex justify-between items-start">
-                <div>
-                    <p class="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">Ahorro Capital Total</p>
-                    <p class="text-3xl font-black italic">Bs <span id="totalSaved">0,00</span></p>
-                    <p class="text-[11px] font-bold text-slate-400 mt-1">Ref. $ <span id="totalSavedUsd">0,00</span></p>
-                </div>
-                <div class="flex gap-2">
-                    <button onclick="exportHistoryExcel()" class="bg-white/10 p-3 rounded-xl border border-white/10 active:scale-90">
-                        <i data-lucide="download" class="w-5 h-5"></i>
-                    </button>
-                </div>
+        <!-- Resumen de Dueño Dinámico -->
+        <div id="ownerSummary" class="bg-zupply p-6 rounded-[2rem] text-white shadow-xl space-y-6 relative overflow-hidden">
+            <div id="dlBtnContainer" class="absolute top-4 right-4 level-locked">
+                <button onclick="exportHistoryToExcel()" class="bg-white/10 p-2 rounded-xl active:scale-90 transition-all" title="Descargar Reporte">
+                    <i data-lucide="download" class="w-4 h-4 text-blue-400"></i>
+                </button>
+                <span class="level-badge">LVL 2</span>
             </div>
-            <div class="pt-4 border-t border-white/5 grid grid-cols-2 gap-4">
-                <div class="bg-white/5 p-3 rounded-2xl">
-                    <p class="text-[8px] font-black text-slate-500 uppercase mb-1">Operaciones</p>
-                    <p class="text-xl font-black" id="opCount">0</p>
+            
+            <div class="text-left space-y-1">
+                <p class="text-[10px] font-black text-blue-400 uppercase tracking-widest">Total Protegido Acumulado</p>
+                <p class="text-4xl font-black" id="totalSavedBs">Bs 0,00</p>
+                <p class="text-sm font-bold text-slate-400" id="totalSavedUsd">$ 0,00</p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4 pt-4 border-t border-white/5">
+                <div class="text-left">
+                    <p class="text-[8px] font-black text-slate-500 uppercase">Consultas Realizadas</p>
+                    <p class="text-lg font-black" id="statConsults">0</p>
                 </div>
-                <div class="bg-white/5 p-3 rounded-2xl">
-                    <p class="text-[8px] font-black text-slate-500 uppercase mb-1">Tasa Media</p>
-                    <p class="text-xl font-black" id="avgRate">0.00</p>
+                <div class="text-left border-l border-white/5 pl-4">
+                    <p class="text-[8px] font-black text-slate-500 uppercase">Tasa Reposición Media</p>
+                    <p class="text-lg font-black text-blue-400" id="statAvgRate">0,00</p>
                 </div>
             </div>
         </div>
 
-        <!-- Configuración de Seguridad (NUEVO/RESTAURADO) -->
-        <section id="securityPanel" class="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 space-y-4">
-            <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-400">Seguridad del Dueño</h3>
-            <div class="flex items-center gap-3">
-                <input type="password" id="newPinInput" maxlength="4" placeholder="Nuevo PIN (4 dígitos)" class="flex-1 bg-slate-50 dark:bg-slate-800 rounded-xl p-3 text-xs font-bold border-none outline-none">
-                <button onclick="updateSecurityPin()" class="bg-zupply dark:bg-blue-600 text-white px-4 py-3 rounded-xl text-[10px] font-black uppercase active:scale-95">Actualizar</button>
+        <!-- Configuración de Seguridad (NUEVO) -->
+        <section id="securityBlock" class="bg-white dark:bg-slate-900 p-6 rounded-3xl border dark:border-slate-800 space-y-4 text-left">
+            <h3 class="text-[10px] font-black uppercase text-slate-400 tracking-widest">Seguridad del Sistema</h3>
+            <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700">
+                <label class="block text-[8px] font-black text-slate-400 uppercase mb-2">Cambiar PIN de Acceso (4 dígitos)</label>
+                <div class="flex gap-2">
+                    <input type="password" id="newPin" maxlength="4" placeholder="Nuevo PIN" class="w-full bg-white dark:bg-slate-900 rounded-xl py-2 px-3 text-xs outline-none border border-slate-200 dark:border-slate-700">
+                    <button onclick="updateSecurityPin()" class="bg-blue-600 text-white px-4 rounded-xl font-black text-[9px] uppercase active:scale-95 transition-all">Guardar</button>
+                </div>
             </div>
         </section>
 
-        <!-- Inventario Maestro -->
-        <section id="inventoryPanel" class="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 space-y-4">
+        <!-- Inventario -->
+        <section id="inventoryBlock" class="bg-white dark:bg-slate-900 p-6 rounded-3xl border dark:border-slate-800 space-y-4 text-left">
             <div class="flex justify-between items-center">
-                <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-400">Inventario Maestro</h3>
-                <div class="flex items-center gap-2">
-                    <button onclick="document.getElementById('excelInfoModal').style.display='flex'" class="text-slate-400 p-2 active:scale-90">
-                        <i data-lucide="info" class="w-4 h-4"></i>
-                    </button>
-                    <button onclick="document.getElementById('importExcel').click()" class="bg-blue-600 text-white p-2 rounded-lg active:scale-90 flex items-center gap-2 px-3">
-                        <i data-lucide="file-up" class="w-4 h-4"></i>
-                        <span class="text-[8px] font-bold uppercase">Importar</span>
-                    </button>
-                    <input type="file" id="importExcel" class="hidden" accept=".xlsx, .xls, .csv" onchange="importInventory(event)">
+                <h3 class="text-[10px] font-black uppercase text-slate-400 tracking-widest">Inventario</h3>
+                <div id="uploadBtnContainer" class="level-locked">
+                    <label class="bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-xl text-[9px] font-black text-blue-500 cursor-pointer">
+                        <i data-lucide="file-up" class="w-3 h-3 inline mr-1"></i> CSV
+                        <input type="file" accept=".csv" class="hidden" onchange="importCSV(event)">
+                    </label>
+                    <span class="level-badge">LVL 1</span>
                 </div>
             </div>
             
-            <!-- Formulario de Item -->
-            <div class="bg-slate-50 dark:bg-slate-800/30 p-4 rounded-2xl border border-slate-50 dark:border-slate-800 space-y-3">
-                <input type="hidden" id="editIndex" value="-1">
-                <input type="text" id="invName" placeholder="Nombre de Producto..." class="w-full bg-white dark:bg-slate-800 rounded-xl p-3 text-xs font-bold border-none outline-none">
-                <div class="grid grid-cols-3 gap-2">
-                    <input type="number" id="invCost" placeholder="Costo $" step="0.01" class="w-full bg-white dark:bg-slate-800 rounded-xl p-3 text-xs font-bold border-none outline-none">
-                    <input type="number" id="invMargin" placeholder="M %" value="30" class="w-full bg-white dark:bg-slate-800 rounded-xl p-3 text-xs font-bold border-none outline-none">
-                    <input type="number" id="invBuffer" placeholder="B %" value="5" class="w-full bg-white dark:bg-slate-800 rounded-xl p-3 text-xs font-bold border-none outline-none">
+            <div class="space-y-3 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">
+                <input type="hidden" id="editProdId">
+                <input type="text" id="manualName" placeholder="Nombre del producto" class="w-full bg-white dark:bg-slate-900 rounded-xl py-2 px-3 text-xs outline-none border border-slate-200 dark:border-slate-700 mb-2">
+                <div class="grid grid-cols-2 gap-2 mb-2">
+                    <input type="number" id="manualCost" placeholder="Costo $" class="bg-white dark:bg-slate-900 rounded-xl py-2 px-3 text-xs outline-none border border-slate-200 dark:border-slate-700">
+                    <input type="number" id="manualMargin" placeholder="Margen %" class="bg-white dark:bg-slate-900 rounded-xl py-2 px-3 text-xs outline-none border border-slate-200 dark:border-slate-700">
                 </div>
-                <div class="flex gap-2">
-                    <button id="btnSaveInv" onclick="addToMasterInventory()" class="flex-1 bg-zupply text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95">Guardar Item</button>
-                    <button id="btnCancelEdit" onclick="cancelEdit()" class="hidden bg-slate-200 dark:bg-slate-700 text-slate-600 px-4 rounded-xl text-[10px] font-black uppercase">X</button>
+                <div class="grid grid-cols-2 gap-2">
+                    <input type="number" id="manualBuffer" placeholder="Buffer %" class="bg-white dark:bg-slate-900 rounded-xl py-2 px-3 text-xs outline-none border border-slate-200 dark:border-slate-700">
+                    <button id="addUpdateBtn" onclick="addManualProduct()" class="bg-blue-600 text-white rounded-xl font-black text-[9px] uppercase">Añadir Producto</button>
                 </div>
             </div>
 
-            <div class="max-h-60 overflow-y-auto scrollbar-hide border border-slate-50 dark:border-slate-800 rounded-2xl">
-                <table class="w-full text-left text-[10px]">
-                    <thead class="sticky top-0 bg-slate-100 dark:bg-slate-800 text-slate-500 font-black uppercase">
-                        <tr>
-                            <th class="p-3">Producto</th>
-                            <th class="p-3 text-center">Costo</th>
-                            <th class="p-3 text-right">Acción</th>
-                        </tr>
-                    </thead>
-                    <tbody id="masterInvTable" class="divide-y divide-slate-50 dark:divide-slate-800"></tbody>
-                </table>
-            </div>
+            <div id="inventoryList" class="space-y-2 max-h-64 overflow-y-auto"></div>
         </section>
 
-        <!-- Historial de Ventas -->
-        <div class="space-y-4 pb-20">
-            <div class="flex items-center justify-between px-2">
-                <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-400">Ventas Recientes</h3>
-                <button onclick="clearHistory()" class="text-[10px] font-bold text-red-500 uppercase flex items-center gap-1 bg-red-50 dark:bg-red-900/20 px-3 py-1.5 rounded-xl active:scale-95">
-                    <i data-lucide="trash-2" class="w-3 h-3"></i> Limpiar Todo
+        <!-- Registro de Consultas -->
+        <section id="historyBlock" class="bg-white dark:bg-slate-900 p-6 rounded-3xl border dark:border-slate-800 space-y-4 text-left">
+            <div class="flex justify-between items-center">
+                <h3 class="text-[10px] font-black uppercase text-slate-400 tracking-widest">Registro de Consultas</h3>
+                <button onclick="clearHistory()" class="text-red-500 opacity-50 hover:opacity-100 transition-all p-1" title="Eliminar Historial">
+                    <i data-lucide="trash-2" class="w-4 h-4"></i>
                 </button>
             </div>
-            <div id="historyList" class="space-y-3"></div>
-        </div>
+            <div id="recentHistoryList" class="space-y-2"></div>
+        </section>
     </main>
 
-    <!-- Modal Formato Excel -->
-    <div id="excelInfoModal">
-        <div class="bg-white dark:bg-slate-900 w-full max-w-sm rounded-[3rem] p-8 text-center space-y-6 shadow-2xl border border-slate-100 dark:border-slate-800">
-            <h2 class="text-xl font-titan text-zupply dark:text-white uppercase">Formato de Excel</h2>
-            <p class="text-xs text-slate-500 leading-relaxed">Usa este orden de columnas para carga masiva:</p>
-            <div class="bg-slate-50 dark:bg-slate-800 p-4 rounded-2xl font-mono text-[9px] text-left space-y-2 overflow-x-auto">
-                <div class="grid grid-cols-4 gap-2 border-b border-slate-200 dark:border-slate-700 pb-2 font-bold text-blue-500 whitespace-nowrap">
-                    <span>Producto</span>
-                    <span>Costo</span>
-                    <span>Margen</span>
-                    <span>Buffer</span>
-                </div>
-                <div class="grid grid-cols-4 gap-2 text-slate-400 whitespace-nowrap">
-                    <span>ARROZ 1KG</span>
-                    <span>1.20</span>
-                    <span>25</span>
-                    <span>5</span>
-                </div>
-            </div>
-            <button onclick="document.getElementById('excelInfoModal').style.display='none'" class="w-full bg-zupply dark:bg-blue-600 text-white p-5 rounded-3xl font-black uppercase text-[10px]">Entendido</button>
-        </div>
-    </div>
-
-    <!-- Modal Cliente -->
+    <!-- Modal Vista Cliente -->
     <div id="clientModal">
-        <div class="bg-white dark:bg-slate-900 w-full max-w-sm rounded-[3rem] p-8 text-center space-y-6 shadow-2xl relative">
-            <button onclick="document.getElementById('clientModal').style.display='none'" class="absolute top-6 right-6 text-slate-400">
-                <i data-lucide="x" class="w-6 h-6"></i>
-            </button>
-            <h2 id="modalProdName" class="text-3xl font-titan text-zupply dark:text-white uppercase mt-4">PRODUCTO</h2>
-            <div class="bg-slate-50 dark:bg-slate-800 py-10 rounded-[3rem]">
-                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Total a Pagar</p>
-                <p class="text-5xl font-black text-zupply dark:text-white tracking-tighter">Bs <span id="modalBs">0,00</span></p>
+        <div class="bg-white dark:bg-slate-900 w-full max-w-sm rounded-[3rem] p-10 text-center space-y-8 shadow-2xl relative border-4 border-blue-500/10">
+            <button onclick="closeClientView()" class="absolute top-6 right-6 text-slate-400"><i data-lucide="x" class="w-6 h-6"></i></button>
+            <div class="space-y-2">
+                <h3 id="clientProdName" class="font-titan text-xl uppercase tracking-tight text-slate-500">PRODUCTO</h3>
+                <p class="text-[10px] font-black text-blue-500 uppercase tracking-widest">Total a Pagar</p>
+            </div>
+            <div class="flex items-center justify-center gap-3">
+                <span id="clientPriceBs" class="text-7xl font-black tracking-tighter text-slate-800 dark:text-white">0,00</span>
+                <span class="text-2xl font-bold text-slate-400 uppercase">Bs</span>
+            </div>
+            <div class="bg-slate-50 dark:bg-slate-800 p-4 rounded-3xl">
+                <p class="text-[10px] font-bold text-slate-500 mb-1 uppercase">Ref. Divisas</p>
+                <p class="text-2xl font-black text-slate-700 dark:text-slate-300">$ <span id="clientPriceUsd">0.00</span></p>
             </div>
             
-            <div class="grid grid-cols-1 gap-3">
-                <button onclick="shareQuote()" class="w-full bg-green-600 text-white p-5 rounded-3xl font-black uppercase text-[10px] flex items-center justify-center gap-3 active:scale-95 transition-all">
-                    <i data-lucide="share-2" class="w-5 h-5"></i> Compartir Cotización
-                </button>
-                <button onclick="document.getElementById('clientModal').style.display='none'" class="w-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300 p-4 rounded-3xl font-black uppercase text-[10px]">Cerrar</button>
-            </div>
+            <button onclick="sharePrice()" class="w-full bg-slate-100 dark:bg-slate-800 py-4 rounded-2xl flex items-center justify-center gap-2 font-black text-[10px] uppercase text-slate-600 dark:text-slate-300 active:scale-95 transition-all">
+                <i data-lucide="share-2" class="w-4 h-4"></i> Compartir Cotización
+            </button>
         </div>
     </div>
 
     <!-- Modal PIN -->
     <div id="authModal">
-        <div class="bg-white dark:bg-slate-900 w-full max-w-xs rounded-[3rem] p-10 text-center space-y-8">
-            <h2 class="text-xl font-titan dark:text-white uppercase">PIN REQUERIDO</h2>
+        <div class="bg-white dark:bg-slate-900 w-full max-w-xs rounded-[3rem] p-8 text-center space-y-6 shadow-2xl">
+            <h2 class="text-xl font-titan uppercase dark:text-white">Acceso Dueño</h2>
             <div class="flex justify-center gap-4">
                 <div id="dot0" class="pin-dot"></div><div id="dot1" class="pin-dot"></div><div id="dot2" class="pin-dot"></div><div id="dot3" class="pin-dot"></div>
             </div>
-            <div id="padContainer" class="grid grid-cols-3 gap-3"></div>
             <div class="grid grid-cols-3 gap-3">
-                <button onclick="clearPin()" class="bg-red-50 text-red-500 p-5 rounded-2xl font-black">C</button>
-                <button onclick="tapPin('0')" class="bg-slate-50 dark:bg-slate-800 p-5 rounded-2xl font-black">0</button>
-                <button onclick="closeAuthModal()" class="bg-slate-100 p-5 rounded-2xl font-black text-slate-400">X</button>
+                <button onclick="tapPin('1')" class="numpad-btn">1</button>
+                <button onclick="tapPin('2')" class="numpad-btn">2</button>
+                <button onclick="tapPin('3')" class="numpad-btn">3</button>
+                <button onclick="tapPin('4')" class="numpad-btn">4</button>
+                <button onclick="tapPin('5')" class="numpad-btn">5</button>
+                <button onclick="tapPin('6')" class="numpad-btn">6</button>
+                <button onclick="tapPin('7')" class="numpad-btn">7</button>
+                <button onclick="tapPin('8')" class="numpad-btn">8</button>
+                <button onclick="tapPin('9')" class="numpad-btn">9</button>
+                <button onclick="clearPin()" class="text-red-500 font-black text-[10px]">BORRAR</button>
+                <button onclick="tapPin('0')" class="numpad-btn">0</button>
+                <button onclick="document.getElementById('authModal').style.display='none'" class="text-slate-400 font-black text-[10px]">SALIR</button>
             </div>
         </div>
     </div>
 
-    <!-- Navegación -->
-    <nav class="fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 px-6 py-4 z-40">
+    <!-- Navegación Centralizada -->
+    <nav class="fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-slate-950/90 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 px-4 py-4 z-40">
         <div class="max-w-md mx-auto flex justify-around">
-            <button onclick="switchView('calc')" id="navCalc" class="flex flex-col items-center gap-1.5 text-blue-600">
-                <i data-lucide="calculator" class="w-6 h-6"></i>
-                <span class="text-[9px] font-black uppercase">Calculadora</span>
+            <button onclick="switchView('calc')" id="nav-calc" class="nav-active flex flex-col items-center gap-1 transition-all">
+                <i data-lucide="calculator"></i>
+                <span class="text-[8px] font-black uppercase">Calculadora</span>
             </button>
-            <button onclick="switchView('report')" id="navReport" class="flex flex-col items-center gap-1.5 text-slate-300">
-                <i data-lucide="bar-chart-3" class="w-6 h-6"></i>
-                <span class="text-[9px] font-black uppercase">Panel</span>
+            <button onclick="switchView('game')" id="nav-game" class="text-slate-400 flex flex-col items-center gap-1 transition-all">
+                <i data-lucide="medal"></i>
+                <span class="text-[8px] font-black uppercase">Niveles</span>
+            </button>
+            <button onclick="switchView('report')" id="nav-report" class="text-slate-400 flex flex-col items-center gap-1 transition-all">
+                <i data-lucide="layout-dashboard"></i>
+                <span class="text-[8px] font-black uppercase">Panel</span>
             </button>
         </div>
     </nav>
 
-    <div id="toast" class="fixed top-24 left-1/2 -translate-x-1/2 bg-zupply text-white px-6 py-3 rounded-2xl text-[10px] font-black opacity-0 transition-all pointer-events-none z-50 uppercase shadow-xl"></div>
+    <div id="toast" class="fixed top-24 left-1/2 -translate-x-1/2 bg-zupply text-white px-6 py-3 rounded-2xl text-[10px] font-black opacity-0 transition-all pointer-events-none z-50 shadow-2xl"></div>
 
     <script>
-        let privacyMode = false;
+        let isDark = false;
+        let privacyMode = true; 
         let currentPinAttempt = "";
         let securityPin = localStorage.getItem('zupply_pin') || "0000";
-        let history = JSON.parse(localStorage.getItem('zupply_history') || '[]');
-        let masterInventory = JSON.parse(localStorage.getItem('zupply_master_inv') || '[]');
+        let inventory = JSON.parse(localStorage.getItem('zupply_inv') || '[]');
+        let history = JSON.parse(localStorage.getItem('zupply_hist') || '[]');
+        let consultCount = parseInt(localStorage.getItem('zupply_consults') || '0');
 
-        function initApp() {
+        const LEVELS = [
+            { threshold: 0, name: "Bronce", label: "Inicial" },
+            { threshold: 50, name: "Plata", label: "Nivel 1" },
+            { threshold: 150, name: "Oro", label: "Nivel 2" },
+            { threshold: 450, name: "Diamante", label: "Max" }
+        ];
+
+        function init() {
             lucide.createIcons();
-            initNumPad();
             calculate();
-            setPrivacyMode(true);
-            updateInventoryList();
-            updateHistory();
+            updateUI();
+            applyPrivacyUI();
+            updateGamification();
         }
 
-        function initNumPad() {
-            const container = document.getElementById('padContainer');
-            container.innerHTML = "";
-            for(let i=1; i<=9; i++) {
-                const btn = document.createElement('button');
-                btn.className = "bg-slate-50 dark:bg-slate-800 p-5 rounded-2xl font-black text-xl active:bg-blue-600 active:text-white";
-                btn.innerText = i;
-                btn.onclick = () => tapPin(i.toString());
-                container.appendChild(btn);
-            }
-        }
-
-        function toggleDarkMode() { 
-            const isDark = document.documentElement.classList.toggle('dark');
-            const icon = document.getElementById('themeIcon');
-            // Cambiar icono basado en el modo
-            icon.setAttribute('data-lucide', isDark ? 'moon' : 'sun');
-            icon.className = `w-5 h-5 ${isDark ? 'text-blue-400' : 'text-yellow-400'}`;
+        function toggleDarkMode() {
+            isDark = !isDark;
+            document.documentElement.classList.toggle('dark', isDark);
             lucide.createIcons();
         }
 
-        function handlePrivacyToggle() {
-            if (privacyMode) openAuthModal();
-            else setPrivacyMode(true);
-        }
+        function updateGamification() {
+            let currentLvl = 0;
+            let nextThreshold = LEVELS[1].threshold;
 
-        function setPrivacyMode(val) {
-            privacyMode = val;
-            // Blur elementos sensibles
-            ['sensitiveFields', 'ratesPanel', 'ownerSummary', 'inventoryPanel', 'securityPanel'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.classList.toggle('blur-sensitive', val);
-            });
-            const lockIcon = document.getElementById('lockIcon');
-            if (lockIcon) {
-                lockIcon.setAttribute('data-lucide', val ? 'lock' : 'lock-open');
-                lucide.createIcons();
+            for (let i = LEVELS.length - 1; i >= 0; i--) {
+                if (consultCount >= LEVELS[i].threshold) {
+                    currentLvl = i;
+                    nextThreshold = (i < LEVELS.length - 1) ? LEVELS[i+1].threshold : consultCount;
+                    break;
+                }
             }
+
+            const rangeMin = LEVELS[currentLvl].threshold;
+            const rangeMax = nextThreshold;
+            const currentInRange = consultCount - rangeMin;
+            const totalInRange = rangeMax - rangeMin;
+            
+            const progress = (currentLvl === LEVELS.length - 1) ? 100 : (currentInRange / totalInRange) * 100;
+            
+            document.getElementById('lvlNumber').innerText = currentLvl + 1;
+            document.getElementById('lvlName').innerText = LEVELS[currentLvl].name;
+            document.getElementById('lvlProgressText').innerText = `${consultCount} / ${nextThreshold} consultas`;
+            document.getElementById('lvlBar').style.width = `${progress}%`;
+
+            if (currentLvl >= 1) document.getElementById('uploadBtnContainer').classList.remove('level-locked');
+            if (currentLvl >= 2) document.getElementById('dlBtnContainer').classList.remove('level-locked');
+            if (currentLvl >= 3) document.getElementById('rewardBadge').classList.remove('hidden');
+
+            localStorage.setItem('zupply_consults', consultCount);
         }
 
         function updateSecurityPin() {
-            const newPin = document.getElementById('newPinInput').value;
-            if (newPin.length === 4 && !isNaN(newPin)) {
-                securityPin = newPin;
-                localStorage.setItem('zupply_pin', newPin);
-                document.getElementById('newPinInput').value = "";
-                showToast("PIN ACTUALIZADO EXITOSAMENTE");
+            const pin = document.getElementById('newPin').value;
+            if(pin.length === 4 && /^\d+$/.test(pin)) {
+                securityPin = pin;
+                localStorage.setItem('zupply_pin', pin);
+                document.getElementById('newPin').value = "";
+                showToast("PIN ACTUALIZADO");
             } else {
                 showToast("PIN DEBE SER DE 4 NÚMEROS");
             }
         }
 
-        function openAuthModal() { currentPinAttempt = ""; updatePinDots(); document.getElementById('authModal').style.display = 'flex'; }
-        function closeAuthModal() { document.getElementById('authModal').style.display = 'none'; }
-        
-        function tapPin(num) {
-            if (currentPinAttempt.length < 4) {
-                currentPinAttempt += num;
-                updatePinDots();
-                if (currentPinAttempt.length === 4) setTimeout(validatePin, 200);
+        function handlePrivacyToggle() {
+            if (privacyMode) {
+                currentPinAttempt = "";
+                updateDots();
+                document.getElementById('authModal').style.display = 'flex';
+            } else {
+                privacyMode = true;
+                applyPrivacyUI();
             }
         }
-        
-        function clearPin() { currentPinAttempt = ""; updatePinDots(); }
-        function updatePinDots() { for (let i = 0; i < 4; i++) document.getElementById(`dot${i}`).classList.toggle('filled', i < currentPinAttempt.length); }
 
-        function validatePin() {
-            if (currentPinAttempt === securityPin) { setPrivacyMode(false); closeAuthModal(); }
-            else { showToast("PIN INCORRECTO"); clearPin(); }
+        function applyPrivacyUI() {
+            const elements = ['ratesBlock', 'inventoryBlock', 'historyBlock', 'dlBtnContainer', 'uploadBtnContainer', 'securityBlock'];
+            elements.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) privacyMode ? el.classList.add('hidden-employee') : el.classList.remove('hidden-employee');
+            });
+            const ownerSummary = document.getElementById('ownerSummary');
+            if (ownerSummary) privacyMode ? ownerSummary.classList.add('blur-sensitive') : ownerSummary.classList.remove('blur-sensitive');
+            const lockIcon = document.getElementById('lockIcon');
+            if (lockIcon) lockIcon.setAttribute('data-lucide', privacyMode ? 'lock' : 'lock-open');
+            lucide.createIcons();
         }
 
-        const formatNum = (n) => new Intl.NumberFormat('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
-        const parseFormat = (s) => parseFloat(s.replace(/\s/g, '').replace(/\./g, '').replace(',', '.')) || 0;
+        function tapPin(n) {
+            if (currentPinAttempt.length < 4) {
+                currentPinAttempt += n;
+                updateDots();
+                if(currentPinAttempt === securityPin) {
+                    privacyMode = false;
+                    applyPrivacyUI();
+                    document.getElementById('authModal').style.display = 'none';
+                    currentPinAttempt = ""; 
+                    showToast("ACCESO AUTORIZADO");
+                } else if (currentPinAttempt.length === 4) {
+                    showToast("PIN INCORRECTO");
+                    currentPinAttempt = ""; 
+                    updateDots();
+                }
+            }
+        }
+
+        function updateDots() {
+            for(let i=0; i<4; i++) {
+                const dot = document.getElementById(`dot${i}`);
+                if(dot) dot.classList.toggle('filled', i < currentPinAttempt.length);
+            }
+        }
+
+        function clearPin() { currentPinAttempt = ""; updateDots(); }
 
         function calculate() {
             const bcv = parseFloat(document.getElementById('rateBcv').value) || 1;
             const rep = parseFloat(document.getElementById('rateRep').value) || 1;
             const cost = parseFloat(document.getElementById('cost').value) || 0;
-            const margin = parseFloat(document.getElementById('margin').value) || 0;
-            const buffer = parseFloat(document.getElementById('buffer').value) || 0;
+            const m = (parseFloat(document.getElementById('margin').value) || 0) / 100;
+            const b = (parseFloat(document.getElementById('buffer').value) || 0) / 100;
+
+            const targetUsdNeto = (cost * (1 + b)) / (1 - m); 
+            const priceBs = targetUsdNeto * rep;
+            const priceUsdClient = priceBs / bcv;
+            const naiveBs = targetUsdNeto * bcv;
+            const saved = Math.max(0, priceBs - naiveBs);
+            const savedUsd = saved / bcv;
+
+            document.getElementById('outBs').innerText = priceBs.toLocaleString('es-VE', {minimumFractionDigits:2, maximumFractionDigits:2});
+            document.getElementById('outUsd').innerText = priceUsdClient.toLocaleString('es-VE', {minimumFractionDigits:2, maximumFractionDigits:2});
+            document.getElementById('outSavedBs').innerText = saved.toLocaleString('es-VE', {minimumFractionDigits:2, maximumFractionDigits:2});
             
-            const gap = ((rep - bcv) / bcv) * 100;
-            const gapEl = document.getElementById('gapPercent');
-            if(gapEl) gapEl.innerText = gap.toFixed(1);
-            
-            const targetUsd = cost * (1 + (buffer / 100)) * (1 + (margin / 100));
-            const targetBs = targetUsd * rep;
-            
-            document.getElementById('outBs').innerText = formatNum(targetBs);
-            document.getElementById('outUsd').innerText = formatNum(targetBs / bcv);
-            
-            const saved = targetBs - (cost * (1 + (margin/100)) * bcv);
-            document.getElementById('savedCapital').innerText = formatNum(saved > 0 ? saved : 0);
-        }
-
-        function addToMasterInventory() {
-            const name = document.getElementById('invName').value.trim();
-            const cost = parseFloat(document.getElementById('invCost').value);
-            const margin = parseFloat(document.getElementById('invMargin').value) || 30;
-            const buffer = parseFloat(document.getElementById('invBuffer').value) || 5;
-            const idx = parseInt(document.getElementById('editIndex').value);
-            
-            if (!name || isNaN(cost)) return showToast("DATOS INCOMPLETOS");
-
-            const product = { name: name.toUpperCase(), cost, margin, buffer };
-            if (idx > -1) masterInventory[idx] = product;
-            else masterInventory.push(product);
-            
-            localStorage.setItem('zupply_master_inv', JSON.stringify(masterInventory));
-            cancelEdit();
-            updateInventoryList();
-            showToast(idx > -1 ? "PRODUCTO ACTUALIZADO" : "PRODUCTO GUARDADO");
-        }
-
-        function updateInventoryList() {
-            const tbody = document.getElementById('masterInvTable');
-            if(!tbody) return;
-            tbody.innerHTML = "";
-            if (masterInventory.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="3" class="p-8 text-center text-slate-300 font-bold uppercase tracking-widest">Inventario Vacío</td></tr>';
-                return;
-            }
-            masterInventory.forEach((p, index) => {
-                const tr = document.createElement('tr');
-                tr.className = "hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors";
-                tr.innerHTML = `
-                    <td class="p-3 font-bold uppercase truncate max-w-[140px] dark:text-white">${p.name}</td>
-                    <td class="p-3 text-center text-slate-500 font-mono font-bold">$${p.cost.toFixed(2)}</td>
-                    <td class="p-3 text-right">
-                        <div class="flex justify-end gap-1">
-                            <button onclick="editProduct(${index})" class="bg-blue-50 dark:bg-blue-900/20 text-blue-500 p-2 rounded-xl active:scale-75 transition-all">
-                                <i data-lucide="pencil" class="w-4 h-4"></i>
-                            </button>
-                            <button onclick="deleteProduct(${index})" class="bg-red-50 dark:bg-red-900/20 text-red-500 p-2 rounded-xl active:scale-75 transition-all">
-                                <i data-lucide="trash-2" class="w-4 h-4"></i>
-                            </button>
-                        </div>
-                    </td>
-                `;
-                tbody.appendChild(tr);
-            });
-            lucide.createIcons();
-        }
-
-        function editProduct(i) {
-            const p = masterInventory[i];
-            if(!p) return;
-            document.getElementById('invName').value = p.name;
-            document.getElementById('invCost').value = p.cost;
-            document.getElementById('invMargin').value = p.margin;
-            document.getElementById('invBuffer').value = p.buffer;
-            document.getElementById('editIndex').value = i;
-            document.getElementById('btnSaveInv').innerText = "Actualizar Item";
-            document.getElementById('btnCancelEdit').classList.remove('hidden');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-
-        function deleteProduct(index) {
-            const prod = masterInventory[index];
-            if(!prod) return;
-            if(confirm(`¿Desea eliminar "${prod.name}"?`)) {
-                masterInventory.splice(index, 1);
-                localStorage.setItem('zupply_master_inv', JSON.stringify(masterInventory));
-                updateInventoryList();
-                showToast("ITEM ELIMINADO");
-            }
-        }
-
-        function cancelEdit() {
-            document.getElementById('editIndex').value = "-1";
-            document.getElementById('invName').value = "";
-            document.getElementById('invCost').value = "";
-            document.getElementById('invMargin').value = "30";
-            document.getElementById('invBuffer').value = "5";
-            document.getElementById('btnSaveInv').innerText = "Guardar Item";
-            document.getElementById('btnCancelEdit').classList.add('hidden');
-        }
-
-        function shareQuote() {
-            const name = (document.getElementById('productName').value || "Producto").toUpperCase();
-            const bs = document.getElementById('outBs').innerText;
-            const usd = document.getElementById('outUsd').innerText;
-            const rate = document.getElementById('rateBcv').value;
-            const text = `🛒 *COTIZACIÓN ZUPPLY*\n\n🔹 *Producto:* ${name}\n💰 *Precio:* Bs ${bs}\n💵 *Ref:* $ ${usd}\n\n📌 Tasa BCV: ${rate} Bs/$\n\n_Generado por Zupply - Control de Brecha_`;
-            if (navigator.share) {
-                navigator.share({ title: 'Cotización Zupply', text: text }).catch(() => {});
-            } else {
-                const el = document.createElement('textarea');
-                el.value = text;
-                document.body.appendChild(el);
-                el.select();
-                document.execCommand('copy');
-                document.body.removeChild(el);
-                showToast("COPIADO AL PORTAPAPELES");
-            }
-        }
-
-        function saveCalculation() {
-            const bs = document.getElementById('outBs').innerText;
-            if (bs === "0,00") return showToast("CALCULE UN MONTO PRIMERO");
-            history.unshift({ 
-                name: document.getElementById('productName').value.toUpperCase() || 'VENTA MANUAL', 
-                date: new Date().toLocaleDateString(),
-                time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}), 
-                bs, 
-                saved: document.getElementById('savedCapital').innerText, 
-                rate: document.getElementById('rateRep').value 
-            });
-            localStorage.setItem('zupply_history', JSON.stringify(history.slice(0, 200)));
-            showToast("VENTA REGISTRADA");
-            document.getElementById('productName').value = "";
-            document.getElementById('cost').value = "0.00";
-            calculate();
-        }
-
-        function updateHistory() {
-            const list = document.getElementById('historyList');
-            if(!list) return;
-            let totalS = 0; let totalSUsd = 0; let totalRate = 0;
-            if (history.length === 0) {
-                list.innerHTML = `<div class="bg-white dark:bg-slate-900 rounded-3xl p-10 text-center border border-dashed border-slate-200 dark:border-slate-800"><p class="text-[10px] font-black text-slate-300 uppercase">Sin ventas registradas</p></div>`;
-                document.getElementById('totalSaved').innerText = "0,00";
-                document.getElementById('totalSavedUsd').innerText = "0,00";
-                document.getElementById('opCount').innerText = "0";
-                document.getElementById('avgRate').innerText = "0.00";
-                return;
-            }
-            list.innerHTML = history.map(h => {
-                const sBs = parseFormat(h.saved);
-                const rate = parseFloat(h.rate) || 1;
-                totalS += sBs; totalSUsd += (sBs / rate); totalRate += rate;
-                return `
-                <div class="bg-white dark:bg-slate-900 p-4 rounded-[2rem] border border-slate-100 dark:border-slate-800 flex justify-between items-center">
-                    <div>
-                        <p class="text-[8px] font-black text-blue-500 mb-1 uppercase">${h.date} | ${h.time}</p>
-                        <p class="text-xs font-black dark:text-white uppercase truncate max-w-[150px]">${h.name}</p>
-                    </div>
-                    <div class="text-right">
-                        <p class="text-sm font-black dark:text-white">Bs ${h.bs}</p>
-                        <p class="text-[9px] font-bold text-green-500">+ Bs ${h.saved}</p>
-                    </div>
-                </div>`;
-            }).join('');
-            document.getElementById('totalSaved').innerText = formatNum(totalS);
-            document.getElementById('totalSavedUsd').innerText = formatNum(totalSUsd);
-            document.getElementById('opCount').innerText = history.length;
-            document.getElementById('avgRate').innerText = formatNum(totalRate / history.length);
-        }
-
-        function clearHistory() {
-            if(confirm('¿BORRAR TODO EL HISTORIAL?')) {
-                history = [];
-                localStorage.setItem('zupply_history', JSON.stringify([]));
-                updateHistory();
-                showToast("HISTORIAL VACIADO");
-            }
-        }
-
-        function exportHistoryExcel() {
-            if (history.length === 0) return showToast("NO HAY DATOS");
-            const dataToExport = history.map(h => ({
-                'Fecha': h.date, 'Hora': h.time, 'Producto': h.name, 'Monto (Bs)': h.bs, 'Ahorro (Bs)': h.saved, 'Tasa Aplicada': h.rate
-            }));
-            try {
-                const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-                const workbook = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(workbook, worksheet, "Ventas");
-                XLSX.writeFile(workbook, `Zupply_Ventas_${new Date().toISOString().split('T')[0]}.xlsx`);
-                showToast("EXCEL GENERADO");
-            } catch (err) { showToast("ERROR EXPORTACIÓN"); }
-        }
-
-        function switchView(v) {
-            document.getElementById('calcView').classList.toggle('hidden', v !== 'calc');
-            document.getElementById('reportView').classList.toggle('hidden', v !== 'report');
-            document.getElementById('navCalc').className = v === 'calc' ? "flex flex-col items-center gap-1.5 text-blue-600" : "flex flex-col items-center gap-1.5 text-slate-300";
-            document.getElementById('navReport').className = v === 'report' ? "flex flex-col items-center gap-1.5 text-blue-600" : "flex flex-col items-center gap-1.5 text-slate-300";
-            document.getElementById('viewTitle').innerText = v === 'calc' ? "Calculadora" : "Panel";
-            if(v === 'report') { updateHistory(); updateInventoryList(); }
-            lucide.createIcons();
-        }
-
-        function showSuggestions() {
-            const input = document.getElementById('productName').value.toUpperCase();
-            const container = document.getElementById('suggestions');
-            if (!input) return container.classList.add('hidden');
-            const filtered = masterInventory.filter(p => p.name.includes(input));
-            if (filtered.length === 0) return container.classList.add('hidden');
-            container.innerHTML = filtered.map(p => `
-                <div onclick="selectProduct('${p.name}', ${p.cost}, ${p.margin}, ${p.buffer})" class="p-4 hover:bg-slate-50 dark:hover:bg-slate-700 border-b dark:border-slate-700 cursor-pointer">
-                    <p class="text-xs font-black dark:text-white uppercase">${p.name}</p>
-                </div>
-            `).join('');
-            container.classList.remove('hidden');
-        }
-
-        function selectProduct(n, c, m, b) {
-            document.getElementById('productName').value = n;
-            document.getElementById('cost').value = c;
-            document.getElementById('margin').value = m;
-            document.getElementById('buffer').value = b;
-            document.getElementById('suggestions').classList.add('hidden');
-            calculate();
+            return { bs: priceBs, usd: priceUsdClient, saved, savedUsd, name: document.getElementById('productSearch').value };
         }
 
         function openClientView() {
-            document.getElementById('modalProdName').innerText = (document.getElementById('productName').value || "VENTA").toUpperCase();
-            document.getElementById('modalBs').innerText = document.getElementById('outBs').innerText;
+            const data = calculate();
+            document.getElementById('clientProdName').innerText = data.name || "PRODUCTO";
+            document.getElementById('clientPriceBs').innerText = data.bs.toLocaleString('es-VE', {minimumFractionDigits:2, maximumFractionDigits:2});
+            document.getElementById('clientPriceUsd').innerText = data.usd.toLocaleString('es-VE', {minimumFractionDigits:2, maximumFractionDigits:2});
             document.getElementById('clientModal').style.display = 'flex';
             lucide.createIcons();
         }
 
-        function showToast(m) { 
-            const t = document.getElementById('toast'); 
-            t.innerText = m; t.style.opacity = '1'; 
-            setTimeout(() => t.style.opacity = '0', 2000); 
+        function sharePrice() {
+            const name = document.getElementById('clientProdName').innerText;
+            const bs = document.getElementById('clientPriceBs').innerText;
+            const usd = document.getElementById('clientPriceUsd').innerText;
+            const text = `Cotización Zupply:\nProducto: ${name}\nTotal: Bs ${bs}\nRef: $ ${usd}`;
+            
+            if (navigator.share) {
+                navigator.share({ title: 'Cotización', text: text }).catch(() => copyToClipboard(text));
+            } else {
+                copyToClipboard(text);
+            }
         }
 
-        function importInventory(event) {
+        function copyToClipboard(text) {
+            const el = document.createElement('textarea');
+            el.value = text;
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand('copy');
+            document.body.removeChild(el);
+            showToast("COPIADO AL PORTAPAPELES");
+        }
+
+        function closeClientView() {
+            document.getElementById('clientModal').style.display = 'none';
+        }
+
+        function confirmPrice() {
+            const data = calculate();
+            const now = new Date();
+            const rateRep = parseFloat(document.getElementById('rateRep').value);
+            
+            const record = { 
+                id: Date.now(),
+                name: data.name || "Consulta Libre", 
+                date: now.toLocaleDateString(),
+                time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                bs: data.bs, 
+                usd: data.usd, 
+                saved: data.saved,
+                savedUsd: data.savedUsd,
+                rateUsed: rateRep
+            };
+            history.unshift(record);
+            consultCount++;
+            localStorage.setItem('zupply_hist', JSON.stringify(history.slice(0,500)));
+            showToast("CONSULTA REGISTRADA");
+            updateUI();
+            updateGamification();
+        }
+
+        function addManualProduct() {
+            const name = document.getElementById('manualName').value;
+            const cost = parseFloat(document.getElementById('manualCost').value);
+            const margin = parseFloat(document.getElementById('manualMargin').value) || 0;
+            const buffer = parseFloat(document.getElementById('manualBuffer').value) || 0;
+            const editId = document.getElementById('editProdId').value;
+
+            if (name && cost) {
+                if (editId) {
+                    const idx = inventory.findIndex(x => x.id == editId);
+                    inventory[idx] = { ...inventory[idx], name, cost, margin, buffer };
+                    document.getElementById('editProdId').value = "";
+                    document.getElementById('addUpdateBtn').innerText = "Añadir Producto";
+                    showToast("PRODUCTO ACTUALIZADO");
+                } else {
+                    inventory.push({ id: Date.now(), name, cost, margin, buffer });
+                    showToast("PRODUCTO AÑADIDO");
+                }
+                localStorage.setItem('zupply_inv', JSON.stringify(inventory));
+                updateUI();
+                ['manualName', 'manualCost', 'manualMargin', 'manualBuffer'].forEach(id => document.getElementById(id).value = "");
+            } else {
+                showToast("DATOS INCOMPLETOS");
+            }
+        }
+
+        function editProduct(id) {
+            const p = inventory.find(x => x.id == id);
+            if(p) {
+                document.getElementById('editProdId').value = p.id;
+                document.getElementById('manualName').value = p.name;
+                document.getElementById('manualCost').value = p.cost;
+                document.getElementById('manualMargin').value = p.margin;
+                document.getElementById('manualBuffer').value = p.buffer;
+                document.getElementById('addUpdateBtn').innerText = "Actualizar Producto";
+                document.getElementById('inventoryBlock').scrollIntoView();
+            }
+        }
+
+        function deleteProduct(id) {
+            inventory = inventory.filter(x => x.id !== id);
+            localStorage.setItem('zupply_inv', JSON.stringify(inventory));
+            updateUI();
+        }
+
+        function clearHistory() {
+            history = [];
+            localStorage.setItem('zupply_hist', JSON.stringify([]));
+            updateUI();
+            showToast("HISTORIAL ELIMINADO");
+        }
+
+        function updateUI() {
+            const invList = document.getElementById('inventoryList');
+            invList.innerHTML = inventory.length === 0 ? `<p class="text-[9px] text-slate-400 italic text-center py-4 uppercase font-black">Sin productos</p>` : 
+            inventory.map(p => `
+                <div class="flex justify-between items-center bg-slate-50 dark:bg-slate-800 p-3 rounded-xl border border-slate-100 dark:border-slate-700">
+                    <div class="text-left">
+                        <p class="text-[10px] font-black uppercase">${p.name}</p>
+                        <p class="text-[8px] text-slate-400">$ ${p.cost} | M: ${p.margin}% | B: ${p.buffer}%</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="editProduct(${p.id})" class="text-blue-500 p-1 hover:bg-blue-50 rounded-lg transition-all"><i data-lucide="edit-3" class="w-3.5 h-3.5"></i></button>
+                        <button onclick="deleteProduct(${p.id})" class="text-red-500 p-1 hover:bg-red-50 rounded-lg transition-all"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+                    </div>
+                </div>
+            `).join('');
+
+            const historyList = document.getElementById('recentHistoryList');
+            historyList.innerHTML = history.length === 0 ? `<p class="text-[10px] text-slate-400 italic text-center py-4">No hay consultas.</p>` : 
+            history.slice(0,10).map(h => `
+                <div class="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl flex justify-between items-center">
+                    <div class="text-left">
+                        <p class="text-[9px] font-black uppercase text-slate-600 dark:text-slate-300">${h.name}</p>
+                        <p class="text-[7px] text-slate-400">${h.date} ${h.time}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-[9px] font-black text-blue-600">Bs ${h.bs.toLocaleString('es-VE', {minimumFractionDigits:2})}</p>
+                        <p class="text-[7px] font-bold text-green-500">Resguardo: Bs ${h.saved.toLocaleString('es-VE', {minimumFractionDigits:2})}</p>
+                    </div>
+                </div>
+            `).join('');
+
+            const totalSavedBs = history.reduce((acc, curr) => acc + curr.saved, 0);
+            const totalSavedUsd = history.reduce((acc, curr) => acc + (curr.savedUsd || 0), 0);
+            const avgRate = history.length > 0 ? history.reduce((acc, curr) => acc + curr.rateUsed, 0) / history.length : 0;
+
+            document.getElementById('totalSavedBs').innerText = "Bs " + totalSavedBs.toLocaleString('es-VE', {minimumFractionDigits:2});
+            document.getElementById('totalSavedUsd').innerText = "$ " + totalSavedUsd.toLocaleString('es-VE', {minimumFractionDigits:2});
+            document.getElementById('statConsults').innerText = history.length;
+            document.getElementById('statAvgRate').innerText = avgRate.toLocaleString('es-VE', {minimumFractionDigits:2});
+            
+            lucide.createIcons();
+        }
+
+        function exportHistoryToExcel() {
+            let csvContent = "data:text/csv;charset=utf-8,";
+            csvContent += "Fecha,Hora,Producto,Precio Bs,Precio Ref $,Protegido Bs,Protegido $,Tasa Usada\n";
+            const rows = history.map(h => [h.date, h.time, `"${h.name}"`, h.bs.toFixed(2), h.usd.toFixed(2), h.saved.toFixed(2), (h.savedUsd || 0).toFixed(2), h.rateUsed.toFixed(2)].join(","));
+            csvContent += rows.join("\n");
+            const link = document.createElement("a");
+            link.setAttribute("href", encodeURI(csvContent));
+            link.setAttribute("download", `Zupply_Reporte_${new Date().toLocaleDateString()}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast("REPORTE DESCARGADO");
+        }
+
+        function switchView(v) {
+            ['calc', 'report', 'game'].forEach(id => {
+                document.getElementById(id + 'View').classList.add('hidden');
+                document.getElementById('nav-' + id).classList.remove('nav-active');
+                document.getElementById('nav-' + id).classList.add('text-slate-400');
+            });
+            document.getElementById(v + 'View').classList.remove('hidden');
+            document.getElementById('nav-' + v).classList.add('nav-active');
+            document.getElementById('nav-' + v).classList.remove('text-slate-400');
+            lucide.createIcons();
+        }
+
+        function searchProducts(val) {
+            const container = document.getElementById('suggestions');
+            if(!val) { container.classList.add('hidden'); return; }
+            const matches = inventory.filter(p => p.name.toLowerCase().includes(val.toLowerCase()));
+            if(matches.length === 0) { container.classList.add('hidden'); return; }
+            container.innerHTML = matches.map(p => `<div class="suggestion-item text-xs font-bold" onclick="selectProduct(${p.id})">${p.name}</div>`).join('');
+            container.classList.remove('hidden');
+        }
+
+        function selectProduct(id) {
+            const p = inventory.find(x => x.id === id);
+            if(p) {
+                document.getElementById('productSearch').value = p.name;
+                document.getElementById('cost').value = p.cost;
+                document.getElementById('margin').value = p.margin;
+                document.getElementById('buffer').value = p.buffer || 5;
+                document.getElementById('suggestions').classList.add('hidden');
+                calculate();
+            }
+        }
+
+        function showToast(m) {
+            const t = document.getElementById('toast');
+            t.innerText = m; t.style.opacity = '1';
+            setTimeout(() => t.style.opacity = '0', 2500);
+        }
+
+        function syncRates() { showToast("TASAS ACTUALIZADAS"); calculate(); }
+
+        function importCSV(event) {
             const file = event.target.files[0];
             if (!file) return;
             const reader = new FileReader();
-            reader.onload = (e) => {
-                try {
-                    const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, { type: 'array' });
-                    const json = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
-                    json.forEach(row => {
-                        const keys = Object.keys(row);
-                        const nK = keys.find(k => k.toLowerCase().includes('producto'));
-                        const cK = keys.find(k => k.toLowerCase().includes('costo'));
-                        const name = (row[nK] || "").toString().toUpperCase();
-                        const cost = parseFloat(row[cK] || 0);
-                        if (name && !isNaN(cost)) masterInventory.push({ name, cost, margin: parseFloat(row[keys.find(k=>k.toLowerCase().includes('margen'))])||30, buffer: parseFloat(row[keys.find(k=>k.toLowerCase().includes('buffer'))])||5 });
-                    });
-                    localStorage.setItem('zupply_master_inv', JSON.stringify(masterInventory));
-                    updateInventoryList();
-                    showToast("IMPORTACIÓN EXITOSA");
-                } catch(err) { showToast("ERROR IMPORTACIÓN"); }
+            reader.onload = function(e) {
+                const rows = e.target.result.split('\n').slice(1);
+                rows.forEach(row => {
+                    const cols = row.split(',');
+                    if (cols.length >= 2) {
+                        inventory.push({ id: Date.now() + Math.random(), name: cols[0].trim(), cost: parseFloat(cols[1]), margin: parseFloat(cols[2]) || 30, buffer: parseFloat(cols[3]) || 5 });
+                    }
+                });
+                localStorage.setItem('zupply_inv', JSON.stringify(inventory));
+                updateUI();
+                showToast("CSV IMPORTADO");
             };
-            reader.readAsArrayBuffer(file);
+            reader.readAsText(file);
         }
 
-        window.onload = initApp;
+        window.onload = init;
     </script>
 </body>
 </html>
